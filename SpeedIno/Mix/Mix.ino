@@ -28,6 +28,12 @@ const int SPEED_SECOND = 19;
 
 const int SPEED_MANUAL = 4;
 
+const int RPM_DO = 25;
+
+const int REVERSE_TST = 23;
+
+const int THROTTLE_TST = 13;
+
 const int EEPROM_SIZE = 10;
 
 const String PWD = "7C9949957AD20F347F8412807DB24E08FBE07A3AA9DA6F10EC72860A7E7C158C";
@@ -59,13 +65,11 @@ void resetDisplay() {
 
   display.setTextSize(1);
   display.setCursor(0, 0);
-  String gears = "PRNMD";
+  String gears = "P R N M D";
   gears.replace((char) currentGear, ' ');
   display.println(gears);
 
   display.drawRect(0, 8, 128, 32 - 8, SSD1306_WHITE);
-
-  displayGear();
 }
 
 void setup() {
@@ -84,6 +88,11 @@ void setup() {
   pinMode(SPEED_FIRST, OUTPUT);
   pinMode(SPEED_SECOND, OUTPUT);
   pinMode(SPEED_MANUAL, OUTPUT);
+
+  pinMode(THROTTLE_TST, OUTPUT);
+  pinMode(REVERSE_TST, OUTPUT);
+
+  pinMode(RPM_DO, INPUT);
   
   // Variables setup
   gearShiftUpToggle = false;
@@ -95,13 +104,18 @@ void setup() {
   EEPROM.get(1, currentGear);
   autoReverse = EEPROM.readBool(0);
 
+  // Gear setup
+  activateGear();
+  if (currentGear != NEUTRAL)
+    digitalWrite(THROTTLE_TST, HIGH);
+
   // Display setup
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
     Serial.println(F("SSD1306 allocation failed"));
     for(;;);
   }
 
-  resetDisplay();
+  displayGear();
   display.display();
 
   // Draw yellow rectangle
@@ -155,14 +169,53 @@ void gearShiftDown() {
 }
 
 void displayGear() {
+  resetDisplay();
   display.setTextSize(2);
   display.setCursor(4, 12);
   display.println((char) currentGear);
   display.display();
 }
 
-void activateGear() {
+void deactivateGear(Gear g) {
+  switch (g) {
+    case REVERSE:
+      digitalWrite(REVERSE_TST, LOW);
+      break;
+    case PARKING:
+      // TODO: Deactivate parking brake
+    case NEUTRAL:
+      digitalWrite(THROTTLE_TST, HIGH);
+      break;
+    case MANUAL:
+      digitalWrite(SPEED_MANUAL, LOW);
+      break;
+    case DRIVE:
+      break;
+  }
+}
 
+void activateGear() {
+  switch (currentGear) {
+    case REVERSE:
+        digitalWrite(REVERSE_TST, HIGH);
+        if (autoReverse) {
+          Serial.println("AUTOREVERSE");
+          digitalWrite(THROTTLE_TST, LOW);
+          delay(1000);
+          digitalWrite(THROTTLE_TST, HIGH);
+        }
+      break;
+    case PARKING:
+      // TODO: Activate parking brake
+    case NEUTRAL:
+      digitalWrite(THROTTLE_TST, LOW);
+      break;
+    case MANUAL:
+      digitalWrite(SPEED_MANUAL, HIGH);
+      break;
+    case DRIVE:
+      break;
+  }
 }
 
 void handleGearShift() {
@@ -190,12 +243,11 @@ void handleGearShift() {
     gearShiftDownToggle = true;
   }
 
-  Serial.println((char)pre);
-
   if (pre == currentGear)
     return;
 
   displayGear();
+  deactivateGear(pre);
   activateGear();
 }
 
@@ -214,12 +266,8 @@ void handleMotorSpeed() {
     handleAutoSpeedShift(rpm);
 }
 
-void loop() {
-  if (Serial.available()) {
-    SerialBT.write(Serial.read());
-  }
-  
-  if (SerialBT.available()) {
+void handleBluetooth() {
+    if (SerialBT.available()) {
     String data = SerialBT.readString();
     Serial.println("BT recv: " + data);
 
@@ -254,6 +302,10 @@ void loop() {
     display.println(data);
     display.display();
   }
+}
+
+void loop() {
+  handleBluetooth();
 
   handleGearShift();
 
