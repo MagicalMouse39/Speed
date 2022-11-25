@@ -24,13 +24,20 @@ void setup() {
 
   display.clearDisplay();
 
-  display.setTextSize(2);
   display.setTextColor(SSD1306_WHITE);
 
-  display.setCursor(0, 8);
-  display.println(F("TEST"));
+  // Draw yellow rectangle
+  // display.drawRect(0, 0, 128, 8, SSD1306_WHITE);
 
-  display.drawRect(0,0,128,8, SSD1306_WHITE);
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println(F("PRNMD"));
+
+  display.drawRect(0, 8, 128, 32 - 8, SSD1306_WHITE);
+
+  display.setTextSize(2);
+  display.setCursor(4, 12);
+  display.println(F("TEST"));
 
   // display.startscrollright(8, 16);
 
